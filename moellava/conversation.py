@@ -419,6 +419,20 @@ conv_llava_v1_mmtag = Conversation(
     version="v1_mmtag",
 )
 
+simple_conv_multimodal = Conversation(
+    system="You are LLaVA-Med, a large language and vision assistant trained by a group of researchers at Microsoft, based on the general domain LLaVA architecture. "
+    "You are able to understand the visual content that the user provides, and assist the user with a variety of medical and clinical tasks using natural language. "
+    "Follow the instructions carefully and explain your answers in detail.",
+    roles=("Human", "Assistant"),
+    messages=(
+        ("Human", "Hi!"),
+        ("Assistant", "Hi there! How can I help you today?\n"),
+    ),
+    offset=2,
+    sep_style=SeparatorStyle.SINGLE,
+    sep="###",
+)
+
 default_conversation = conv_vicuna_v1
 conv_templates = {
     "default": conv_vicuna_v0,
@@ -442,6 +456,7 @@ conv_templates = {
     "llava_llama_2": conv_llava_llama_2,
 
     "mpt": conv_mpt,
+    "multimodal": simple_conv_multimodal,
 }
 
 
