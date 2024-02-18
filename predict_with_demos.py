@@ -112,111 +112,109 @@ def main(args):
             )
 
     def run(conv, images):
-      prompt = conv.get_prompt()
-      input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
-      input_token_len = input_ids.shape[1]
-      print(input_token_len)
-      #assert input_ids.dtype==torch.long, "type is incorrect"
-
-     stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-     keywords = [stop_str]
-     stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
-
-     with torch.inference_mode():
-      output_ids = model.generate(                                                                      #is images image_tensor here?
-              input_ids,
-              images=images,
-              do_sample=True,
-              temperature=0.2,
-              max_new_tokens=1024,
-              stopping_criteria=[stopping_criteria],
-              use_cache=True
+        prompt = conv.get_prompt()
+        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
+        input_token_len = input_ids.shape[1]
+        print(input_token_len)
+        #assert input_ids.dtype==torch.long, "type is incorrect"
+        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
+        keywords = [stop_str]
+        stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
+        
+        with torch.inference_mode():
+            output_ids = model.generate(                                                                      #is images image_tensor here?
+            input_ids,
+            images=images,
+            do_sample=True,
+            temperature=0.2,
+            max_new_tokens=1024,
+            stopping_criteria=[stopping_criteria],
+            use_cache=True
           )
-
-      #n_diff_input_output = ((input_ids != output_ids[:, :input_token_len]).sum().item())
-      #if n_diff_input_output > 0:
+        #n_diff_input_output = ((input_ids != output_ids[:, :input_token_len]).sum().item())
+        #if n_diff_input_output > 0:
         #print(f"[Warning] Sample {idx}: {n_diff_input_output} output_ids are not the same as the input_ids")
-      
-      outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
-      print(outputs)
-      return outputs
+        
+        outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
+        print(outputs)
+        return outputs
 
-#continue from here.
+    #continue from here.
     image_processor = processor['image']
     for idx in tqdm(range(len(dataset))):
-            if dataset[idx]["file_name"] in seen_ids:
-                continue
-            ex = dataset[idx]
-            image_path = ex["file_name"]                 #i think we have to load the actual image.
-            image = load_image(os.path.join(args.images_path, image_path))
-            question = "What does the man in the meme feel entitled to?"              #same question for every ex. change according to output expected here.
-            text=ex["Text"]
+        if dataset[idx]["file_name"] in seen_ids:
+            continue
+        ex = dataset[idx]
+        image_path = ex["file_name"]                 #i think we have to load the actual image.
+        image = load_image(os.path.join(args.images_path, image_path))
+        question = "What does the man in the meme feel entitled to?"              #same question for every ex. change according to output expected here.
+        text=ex["Text"]
+        
+        labels=[]                                               #get labels.
             
-            labels=[]                                               #get labels.
-                
-            if ex["shaming"]==1:
-                labels.append("shaming")
-            if ex["stereotype"]==1:
-                labels.append("stereotype")
-            if ex["objectification"]==1:
-                labels.append("objectification")
-            if ex["violence"]==1:
-                labels.append("violence")
+        if ex["shaming"]==1:
+            labels.append("shaming")
+        if ex["stereotype"]==1:
+            labels.append("stereotype")
+        if ex["objectification"]==1:
+            labels.append("objectification")
+        if ex["violence"]==1:
+            labels.append("violence")
+        
+        image_tensor = image_processor.preprocess(
+            [d["image"] for d in ex_demos] + [image], return_tensors="pt"
+        )["pixel_values"]
+        # removed .unsqueeze(0)
+        images = image_tensor.half().cuda()
+        conv = conv_templates["multimodal"].copy()
+
+        for d in ex_demos:
+            add_r_turn(
+                conv,text=d["text"],labels=d["labels"],
+                question=d["question"],
+                rationale=d["rationale"],            #changed near demos. 
+            )
+            add_a_turn(
+                conv,
+                answer=d["answer"],                   #change category wrt output.
+            )
+
+        final_conv = conv.copy()
+
+        add_r_turn(
+            conv,text=text,
+            labels=labels,
+            question=question,
             
-            image_tensor = image_processor.preprocess(
-                [d["image"] for d in ex_demos] + [image], return_tensors="pt"
-            )["pixel_values"]
-            # removed .unsqueeze(0)
-            images = image_tensor.half().cuda()
-            conv = conv_templates["multimodal"].copy()
-    
-            for d in ex_demos:
-                add_r_turn(
-                    conv,text=d["text"],labels=d["labels"],
-                    question=d["question"],
-                    rationale=d["rationale"],            #changed near demos. 
+        )
+
+        rationale = run(conv, images)
+
+        add_r_turn(
+            final_conv,
+            text=text,
+            labels=labels,
+            question=question,
+            rationale=rationale,
+                                       #shud we add text and labels twice?
+        )
+        full_conv = final_conv.copy()
+        add_a_turn(final_conv)
+
+        pred = run(final_conv, images)
+        add_a_turn(full_conv, answer=pred)
+
+        with open(answers_file, "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "id": ex["file_name"],
+                        "rationale": rationale,
+                        "pred": pred,
+                    }
                 )
-                add_a_turn(
-                    conv,
-                    answer=d["answer"],                   #change category wrt output.
-                )
-    
-            final_conv = conv.copy()
-    
-            add_r_turn(
-                conv,text=text,
-                labels=labels,
-                question=question,
-                
+                + "\n"
             )
-    
-            rationale = run(conv, images)
-    
-            add_r_turn(
-                final_conv,
-                text=text,
-                labels=labels,
-                question=question,
-                rationale=rationale,
-                                           #shud we add text and labels twice?
-            )
-            full_conv = final_conv.copy()
-            add_a_turn(final_conv)
-    
-            pred = run(final_conv, images)
-            add_a_turn(full_conv, answer=pred)
-    
-            with open(answers_file, "a") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "id": ex["file_name"],
-                            "rationale": rationale,
-                            "pred": pred,
-                        }
-                    )
-                    + "\n"
-                )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
