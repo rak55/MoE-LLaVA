@@ -80,7 +80,7 @@ def main(args):
         h=" ".join(labels)
         label=labelh + " " +h + "."
         qs = f"{text} {label} {question} {r_prompt}"
-        qs = DEFAULT_IMAGE_TOKENqs + "\n" + qs
+        qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
 
         conv.append_message(conv.roles[0], qs)
         if rationale is not None:
