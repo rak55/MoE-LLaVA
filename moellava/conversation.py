@@ -420,9 +420,10 @@ conv_llava_v1_mmtag = Conversation(
 )
 
 simple_conv_multimodal = Conversation(
-    system="You are LLaVA-Med, a large language and vision assistant trained by a group of researchers at Microsoft, based on the general domain LLaVA architecture. "
-    "You are able to understand the visual content that the user provides, and assist the user with a variety of medical and clinical tasks using natural language. "
-    "Follow the instructions carefully and explain your answers in detail.",
+    system="You are a large language and vision assistant. "
+    "You are able to understand the visual content that the user provides, and assist the user with a variety of tasks pertaining to Misogyny using natural language. "
+    "Misogyny is defined as dislike of, contempt for, or ingrained prejudice against women. "
+    "You will be given a misogynous meme and the corresponding misogynous categories it belongs to. Give useful, relevant answers to the user's questions.",
     roles=("Human", "Assistant"),
     messages=(
         ("Human", "Hi!"),
