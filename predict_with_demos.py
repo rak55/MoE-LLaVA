@@ -93,8 +93,6 @@ def main(args):
                 conv.roles[1],
                 None,
             )
-        prompt = conv.get_prompt()
-        print(prompt)
         
 
     def add_a_turn(conv, answer: str | None = None):
@@ -137,6 +135,7 @@ def main(args):
         #print(f"[Warning] Sample {idx}: {n_diff_input_output} output_ids are not the same as the input_ids")
         
         outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
+        print("The rationale/answer generated is:")
         print(outputs)
         return outputs
 
@@ -148,7 +147,7 @@ def main(args):
         ex = dataset[idx]
         image_path = ex["file_name"]                 #i think we have to load the actual image.
         image = load_image(os.path.join(args.images_path, image_path))
-        question = "What does the man in the meme feel entitled to?"              #same question for every ex. change according to output expected here.
+        question = "Entitlement refers to the belief of a man that he has the right to certain things when it comes to women. What is the entitlement present in the image?"              #same question for every ex. change according to output expected here.
         text=ex["Text"]
         
         labels=[]                                               #get labels.
@@ -188,6 +187,9 @@ def main(args):
             question=question,
             
         )
+        
+        prompt = conv.get_prompt()
+        print(prompt)
 
         rationale = run(conv, images)
 
